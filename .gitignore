@@ -1,0 +1,12 @@
+# Node modules
+node_modules/
+
+# IDE and editor configurations
+.idea/
+.vscode/
+
+# Environment variables
+.env
+.test.env
+
+public/uploads/
