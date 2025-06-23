@@ -126,6 +126,96 @@ router.get('/getPatients', userAuthMiddleware, async (req, res) => {
     }
 });
 
+router.post('/register', async (req, res) => {
+    try {
+        const {
+            name,
+            email,
+            password,
+            phone,
+            right_code,
+            confirm_password
+        } = req.body;
+
+        if (password.length < 6) {
+            return sendJsonResponse(res, false, 400, "Parola trebuie sa aiba minim 6 caractere", null);
+        }
+
+        // Fields that are allowed to be added for a new user
+        const validFields = [
+            'name', 'email', 'password', 'phone', 'confirm_password'
+        ];
+
+        // Build the new user data from the request, only including valid fields
+        const userData = {};
+        for (const key in req.body) {
+            if (validFields.includes(key)) {
+                userData[key] = key === "password" ? md5Hash(req.body[key]) : userData[key] = key === "confirm_password" ? md5Hash(req.body[key]) : req.body[key];
+            }
+        }
+
+        // Ensure required fields are present
+        if (!userData.name || !userData.email || !userData.password || !userData.phone || !userData.confirm_password) {
+            return sendJsonResponse(res, false, 400, "Numele, emailul, parola, numarul de telefon si confirmarea parolei sunt obligatorii!", null);
+        }
+        if (userData.password !== userData.confirm_password) {
+            return sendJsonResponse(res, false, 400, "Parolele nu coincid!", []);
+        }
+
+        const phoneRegex = /^07[0-9]{8}$/;
+        if (!phoneRegex.test(userData.phone)) {
+            return sendJsonResponse(res, false, 400, "Numărul de telefon trebuie să înceapă cu 07 și să aibă 10 cifre.", null);
+        }
+
+
+        if (userData.name.length < 3) {
+            return sendJsonResponse(res, false, 400, "Numele trebuie sa aiba minim 3 caractere", null);
+        }
+
+        if (userData.email.length < 3) {
+            return sendJsonResponse(res, false, 400, "Emailul trebuie sa aiba minim 3 caractere", null);
+        }
+
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!emailRegex.test(userData.email)) {
+            return sendJsonResponse(res, false, 400, "Emailul nu este valid", null);
+        }
+
+        if (!right_code) {
+            return sendJsonResponse(res, false, 400, "Dreptul este obligatoriu", null);
+        }
+
+        let newUserId;
+        // let rightCode;
+        const userEmail = await db('users').where('email', email).first();
+        if (!userEmail) {
+            // Insert the new user into the database
+            [newUserId] = await db('users')
+                .insert(userData)
+                .returning('id');
+
+            const rightCode = await db('rights').where('right_code', right_code).first();
+
+            await db('user_rights')
+
+                .where({ user_id: newUserId })
+                .insert({
+                    user_id: newUserId,
+                    right_id: rightCode.id
+                });
+
+            sendJsonResponse(res, true, 201, "Utilizatorul a fost creat cu succes", { id: newUserId });
+        } else {
+            sendJsonResponse(res, false, 400, "Utilizatorul exista deja", null);
+        }
+
+
+    } catch (error) {
+        console.error("Error creating user:", error);
+        sendJsonResponse(res, false, 500, "Internal server error", null);
+    }
+});
+
 export default router;
 
 

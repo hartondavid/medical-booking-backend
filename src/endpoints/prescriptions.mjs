@@ -14,7 +14,7 @@ const upload = createMulter('public/uploads/prescriptions', [
 const router = Router();
 
 
-// Adaugă o rețetă nouă (doar admin)
+// Adaugă o rețetă nouă 
 router.post('/addPrescription', userAuthMiddleware, upload.fields([{ name: 'file' }]), async (req, res) => {
 
     try {
@@ -22,6 +22,10 @@ router.post('/addPrescription', userAuthMiddleware, upload.fields([{ name: 'file
 
         const userId = req.user?.id;
         const { patient_id } = req.body;
+
+        if (!patient_id) {
+            return sendJsonResponse(res, false, 400, "Pacientul nu există!", []);
+        }
 
 
         if (!req.files || !req.files['file']) {
@@ -60,6 +64,10 @@ router.put('/updatePrescription/:prescriptionId', userAuthMiddleware, async (req
         const { file_path } = req.body;
         const userId = req.user?.id;
 
+        if (!prescriptionId) {
+            return sendJsonResponse(res, false, 400, "Reteta nu există!", []);
+        }
+
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
@@ -85,12 +93,16 @@ router.put('/updatePrescription/:prescriptionId', userAuthMiddleware, async (req
     }
 });
 
-// //Șterge o rezervare
+//Șterge o rețetă
 router.delete('/deletePrescription/:prescriptionId', userAuthMiddleware, async (req, res) => {
 
     try {
         const { prescriptionId } = req.params;
         const userId = req.user?.id;
+
+        if (!prescriptionId) {
+            return sendJsonResponse(res, false, 400, "Reteta nu există!", []);
+        }
 
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')

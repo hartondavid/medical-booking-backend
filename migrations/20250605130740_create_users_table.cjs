@@ -9,6 +9,7 @@ exports.up = function (knex) {
         table.string('specialization', 255).nullable();
         table.string('photo', 255).nullable();
         table.integer('last_login').nullable();
+        table.string('confirm_password', 255).notNullable();
 
         table.timestamps(true, true);
     });

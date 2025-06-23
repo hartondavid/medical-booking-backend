@@ -11,9 +11,9 @@ async function resetDatabase() {
         await db.schema.dropTableIfExists('users');
         await db.schema.dropTableIfExists('rights');
         await db.schema.dropTableIfExists('user_rights');
-        await db.schema.dropTableIfExists('cakes');
-        await db.schema.dropTableIfExists('cake_recipes');
-        await db.schema.dropTableIfExists('raw_materials');
+        await db.schema.dropTableIfExists('reservations');
+        await db.schema.dropTableIfExists('prescriptions');
+        await db.schema.dropTableIfExists('reviews');
 
         console.log('Database reset successful');
     } catch (error) {

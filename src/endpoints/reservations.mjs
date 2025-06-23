@@ -12,13 +12,17 @@ function toMySQLDatetime(dateString) {
 }
 
 
-// Adaugă o rezervare nouă (doar admin)
+// Adaugă o rezervare nouă
 router.post('/addReservation', userAuthMiddleware, async (req, res) => {
 
     try {
 
         const { date, doctor_id, subject, description } = req.body;
         const userId = req.user?.id;
+
+        if (!date || !doctor_id || !subject || !description) {
+            return sendJsonResponse(res, false, 400, "Campurile sunt obligatorii!", []);
+        }
 
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
@@ -117,6 +121,7 @@ router.get('/getReservationsByDoctorId', userAuthMiddleware, async (req, res) =>
         const reservations = await db('reservations')
             .join('users', 'reservations.patient_id', 'users.id')
             .where('reservations.doctor_id', userId)
+            .whereNot('reservations.status', 'finished')
             .select(
                 'reservations.id',
                 'reservations.date',
@@ -157,6 +162,7 @@ router.get('/getReservationsByPatientId', userAuthMiddleware, async (req, res) =
         const reservations = await db('reservations')
             .join('users', 'reservations.doctor_id', 'users.id')
             .where('reservations.patient_id', userId)
+            .whereNot('reservations.status', 'finished')
             .select(
                 'reservations.id',
                 'reservations.date',

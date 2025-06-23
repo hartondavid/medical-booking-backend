@@ -17,8 +17,6 @@ router.get('/getUserRights', userAuthMiddleware, async (req, res) => {
 
             );
 
-        console.log('userRights', userRights);
-
 
         if (!userRights) {
             req.userRights = [];
