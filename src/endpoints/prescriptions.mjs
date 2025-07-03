@@ -18,15 +18,12 @@ const router = Router();
 router.post('/addPrescription', userAuthMiddleware, upload.fields([{ name: 'file' }]), async (req, res) => {
 
     try {
-
-
         const userId = req.user?.id;
         const { patient_id } = req.body;
 
         if (!patient_id) {
             return sendJsonResponse(res, false, 400, "Pacientul nu există!", []);
         }
-
 
         if (!req.files || !req.files['file']) {
             return sendJsonResponse(res, false, 400, "File is required", null);
@@ -45,9 +42,7 @@ router.post('/addPrescription', userAuthMiddleware, upload.fields([{ name: 'file
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-
         const [id] = await db('prescriptions').insert({ file_path: filePathForImagePath, patient_id: patient_id, doctor_id: userId });
-
 
         const prescription = await db('prescriptions').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Reteta a fost adăugată cu succes!", { prescription });

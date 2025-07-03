@@ -19,12 +19,9 @@ export const userAuthMiddleware = async (req, res, next) => {
         // Fetch the user from the database based on the ID from the token
         const user = await db('users').where({ id: userId }).first();
 
-
-
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-
 
         // Attach the user to the request object
         req.user = user;

@@ -54,6 +54,7 @@ router.put('/updateReservationStatus/:reservationId', userAuthMiddleware, async 
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
+            .orWhere('rights.right_code', 2)
             .where('user_rights.user_id', userId)
             .first();
 
