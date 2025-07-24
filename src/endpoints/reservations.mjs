@@ -24,7 +24,7 @@ router.post('/addReservation', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 400, "Campurile sunt obligatorii!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
             .where('user_rights.user_id', userId)
@@ -35,8 +35,8 @@ router.post('/addReservation', userAuthMiddleware, async (req, res) => {
         }
         const dateStartMySQL = toMySQLDatetime(date);
 
-        const [id] = await db('reservations').insert({ date: dateStartMySQL, doctor_id, patient_id: userId, subject, description });
-        const reservation = await db('reservations').where({ id }).first();
+        const [id] = await (await db.getKnex())('reservations').insert({ date: dateStartMySQL, doctor_id, patient_id: userId, subject, description });
+        const reservation = await (await db.getKnex())('reservations').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Rezervarea a fost adăugată cu succes!", { reservation });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la adăugarea rezervării!", { details: error.message });
@@ -51,7 +51,7 @@ router.put('/updateReservationStatus/:reservationId', userAuthMiddleware, async 
         const { status } = req.body;
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .orWhere('rights.right_code', 2)
@@ -62,15 +62,15 @@ router.put('/updateReservationStatus/:reservationId', userAuthMiddleware, async 
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const reservation = await db('reservations')
+        const reservation = await (await db.getKnex())('reservations')
             .where({ id: reservationId }).first();
 
         if (!reservation) return sendJsonResponse(res, false, 404, "Rezervarea nu există!", []);
-        await db('reservations').where({ id: reservationId }).update({
+        await (await db.getKnex())('reservations').where({ id: reservationId }).update({
             status: status || reservation.status,
         });
 
-        const updated = await db('reservations').where({ id: reservationId }).first();
+        const updated = await (await db.getKnex())('reservations').where({ id: reservationId }).first();
         return sendJsonResponse(res, true, 200, "Rezervarea a fost actualizată cu succes!", { reservation: updated });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la actualizarea rezervării!", { details: error.message });
@@ -84,7 +84,7 @@ router.delete('/deleteReservation/:reservationId', userAuthMiddleware, async (re
         const { reservationId } = req.params;
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -94,10 +94,10 @@ router.delete('/deleteReservation/:reservationId', userAuthMiddleware, async (re
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const reservation = await db('reservations')
+        const reservation = await (await db.getKnex())('reservations')
             .where({ id: reservationId }).first();
         if (!reservation) return sendJsonResponse(res, false, 404, "Rezervarea nu există!", []);
-        await db('reservations').where({ id: reservationId }).del();
+        await (await db.getKnex())('reservations').where({ id: reservationId }).del();
         return sendJsonResponse(res, true, 200, "Rezervarea a fost ștearsă cu succes!", []);
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la ștergerea rezervării!", { details: error.message });
@@ -109,7 +109,7 @@ router.get('/getReservationsByDoctorId', userAuthMiddleware, async (req, res) =>
 
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -119,7 +119,7 @@ router.get('/getReservationsByDoctorId', userAuthMiddleware, async (req, res) =>
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const reservations = await db('reservations')
+        const reservations = await (await db.getKnex())('reservations')
             .join('users', 'reservations.patient_id', 'users.id')
             .where('reservations.doctor_id', userId)
             .whereNot('reservations.status', 'finished')
@@ -150,7 +150,7 @@ router.get('/getReservationsByPatientId', userAuthMiddleware, async (req, res) =
 
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
             .where('user_rights.user_id', userId)
@@ -160,7 +160,7 @@ router.get('/getReservationsByPatientId', userAuthMiddleware, async (req, res) =
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const reservations = await db('reservations')
+        const reservations = await (await db.getKnex())('reservations')
             .join('users', 'reservations.doctor_id', 'users.id')
             .where('reservations.patient_id', userId)
             .whereNot('reservations.status', 'finished')
@@ -191,7 +191,7 @@ router.get('/getPastReservationsByDoctorId', userAuthMiddleware, async (req, res
 
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -201,7 +201,7 @@ router.get('/getPastReservationsByDoctorId', userAuthMiddleware, async (req, res
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const reservations = await db('reservations')
+        const reservations = await (await db.getKnex())('reservations')
             .join('users', 'reservations.patient_id', 'users.id')
             .where('reservations.doctor_id', userId)
             .where('reservations.status', 'finished')
@@ -232,7 +232,7 @@ router.get('/getPastReservationsByPatientId', userAuthMiddleware, async (req, re
 
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
             .where('user_rights.user_id', userId)
@@ -242,7 +242,7 @@ router.get('/getPastReservationsByPatientId', userAuthMiddleware, async (req, re
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const reservations = await db('reservations')
+        const reservations = await (await db.getKnex())('reservations')
             .join('users', 'reservations.doctor_id', 'users.id')
             .where('reservations.patient_id', userId)
             .where('reservations.status', 'finished')
@@ -267,7 +267,5 @@ router.get('/getPastReservationsByPatientId', userAuthMiddleware, async (req, re
         return sendJsonResponse(res, false, 500, 'Eroare la preluarea rezervărilor!', { details: error.message });
     }
 });
-
-
 
 export default router; 

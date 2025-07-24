@@ -16,7 +16,7 @@ router.post('/login', async (req, res) => {
             return sendJsonResponse(res, false, 400, "Email and password are required", []);
         }
         // Fetch user from database
-        const user = await db('users').where({ email }).first();
+        const user = await (await db.getKnex())('users').where({ email }).first();
 
         if (!user) {
             return sendJsonResponse(res, false, 401, "Invalid credentials", []);
@@ -32,7 +32,7 @@ router.post('/login', async (req, res) => {
         // Generate JWT token
         const token = getAuthToken(user.id, user.email, false, '1d', true)
 
-        await db('users')
+        await (await db.getKnex())('users')
             .where({ id: user.id })
             .update({ last_login: parseInt(Date.now() / 1000) });
 
@@ -57,7 +57,7 @@ router.get('/getDoctors', userAuthMiddleware, async (req, res) => {
 
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
             .where('user_rights.user_id', userId)
@@ -67,7 +67,7 @@ router.get('/getDoctors', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const doctors = await db('users')
+        const doctors = await (await db.getKnex())('users')
             .join('user_rights', 'users.id', 'user_rights.user_id')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
@@ -94,7 +94,7 @@ router.get('/getPatients', userAuthMiddleware, async (req, res) => {
 
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -104,7 +104,7 @@ router.get('/getPatients', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const pacients = await db('users')
+        const pacients = await (await db.getKnex())('users')
             .join('user_rights', 'users.id', 'user_rights.user_id')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
@@ -187,16 +187,16 @@ router.post('/register', async (req, res) => {
 
         let newUserId;
         // let rightCode;
-        const userEmail = await db('users').where('email', email).first();
+        const userEmail = await (await db.getKnex())('users').where('email', email).first();
         if (!userEmail) {
             // Insert the new user into the database
             [newUserId] = await db('users')
                 .insert(userData)
                 .returning('id');
 
-            const rightCode = await db('rights').where('right_code', right_code).first();
+            const rightCode = await (await db.getKnex())('rights').where('right_code', right_code).first();
 
-            await db('user_rights')
+            await (await db.getKnex())('user_rights')
 
                 .where({ user_id: newUserId })
                 .insert({

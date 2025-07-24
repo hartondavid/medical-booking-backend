@@ -32,7 +32,7 @@ router.post('/addPrescription', userAuthMiddleware, upload.fields([{ name: 'file
         let filePathForImagePath = req.files['file'][0].path; // Get the full file path
         filePathForImagePath = filePathForImagePath.replace(/^public[\\/]/, '');
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -42,9 +42,9 @@ router.post('/addPrescription', userAuthMiddleware, upload.fields([{ name: 'file
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const [id] = await db('prescriptions').insert({ file_path: filePathForImagePath, patient_id: patient_id, doctor_id: userId });
+        const [id] = await (await db.getKnex())('prescriptions').insert({ file_path: filePathForImagePath, patient_id: patient_id, doctor_id: userId });
 
-        const prescription = await db('prescriptions').where({ id }).first();
+        const prescription = await (await db.getKnex())('prescriptions').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Reteta a fost adăugată cu succes!", { prescription });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la adăugarea retetei!", { details: error.message });
@@ -63,7 +63,7 @@ router.put('/updatePrescription/:prescriptionId', userAuthMiddleware, async (req
             return sendJsonResponse(res, false, 400, "Reteta nu există!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -73,7 +73,7 @@ router.put('/updatePrescription/:prescriptionId', userAuthMiddleware, async (req
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const prescription = await db('prescriptions')
+        const prescription = await (await db.getKnex())('prescriptions')
             .where({ id: prescriptionId }).first();
 
         if (!prescription) return sendJsonResponse(res, false, 404, "Reteta nu există!", []);
@@ -99,7 +99,7 @@ router.delete('/deletePrescription/:prescriptionId', userAuthMiddleware, async (
             return sendJsonResponse(res, false, 400, "Reteta nu există!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -109,10 +109,10 @@ router.delete('/deletePrescription/:prescriptionId', userAuthMiddleware, async (
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const prescription = await db('prescriptions')
+        const prescription = await (await db.getKnex())('prescriptions')
             .where({ id: prescriptionId }).first();
         if (!prescription) return sendJsonResponse(res, false, 404, "Rezervarea nu există!", []);
-        await db('prescriptions').where({ id: prescriptionId }).del();
+        await (await db.getKnex())('prescriptions').where({ id: prescriptionId }).del();
         return sendJsonResponse(res, true, 200, "Rezervarea a fost ștearsă cu succes!", []);
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la ștergerea rezervării!", { details: error.message });
@@ -124,7 +124,7 @@ router.get('/getPrescriptionsByDoctorId', userAuthMiddleware, async (req, res) =
 
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -134,7 +134,7 @@ router.get('/getPrescriptionsByDoctorId', userAuthMiddleware, async (req, res) =
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const prescriptions = await db('users')
+        const prescriptions = await (await db.getKnex())('users')
             .join('prescriptions', 'users.id', 'prescriptions.patient_id')
             .where('prescriptions.doctor_id', userId)
             .select(
@@ -162,7 +162,7 @@ router.get('/getPrescriptionsByPatientId', userAuthMiddleware, async (req, res) 
 
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
             .where('user_rights.user_id', userId)
@@ -172,7 +172,7 @@ router.get('/getPrescriptionsByPatientId', userAuthMiddleware, async (req, res) 
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const prescriptions = await db('users')
+        const prescriptions = await (await db.getKnex())('users')
             .join('prescriptions', 'users.id', 'prescriptions.doctor_id')
             .where('prescriptions.patient_id', userId)
             .select(
@@ -193,7 +193,5 @@ router.get('/getPrescriptionsByPatientId', userAuthMiddleware, async (req, res) 
         return sendJsonResponse(res, false, 500, 'Eroare la preluarea rețetelor!', { details: error.message });
     }
 });
-
-
 
 export default router;

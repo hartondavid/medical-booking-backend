@@ -19,7 +19,7 @@ router.post('/addReview', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 400, "Campurile sunt obligatorii!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
             .where('user_rights.user_id', userId)
@@ -30,8 +30,8 @@ router.post('/addReview', userAuthMiddleware, async (req, res) => {
         }
 
 
-        const [id] = await db('reviews').insert({ rating, reservation_id, doctor_id: 1, pacient_id: userId });
-        const review = await db('reviews').where({ id }).first();
+        const [id] = await (await db.getKnex())('reviews').insert({ rating, reservation_id, doctor_id: 1, pacient_id: userId });
+        const review = await (await db.getKnex())('reviews').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Rezervarea a fost adăugată cu succes!", { review });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la adăugarea rezervării!", { details: error.message });
@@ -43,7 +43,7 @@ router.get('/getReviewsByDoctorId', userAuthMiddleware, async (req, res) => {
 
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -53,7 +53,7 @@ router.get('/getReviewsByDoctorId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const reviews = await db('reviews')
+        const reviews = await (await db.getKnex())('reviews')
             .join('users', 'reviews.doctor_id', 'users.id')
             .join('reservations', 'reviews.reservation_id', 'reservations.id')
             .join('users as pacients', 'reservations.patient_id', 'pacients.id')
@@ -86,7 +86,7 @@ router.get('/getReservationsWithoutReviewsByPacientId', userAuthMiddleware, asyn
 
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
             .where('user_rights.user_id', userId)
@@ -96,7 +96,7 @@ router.get('/getReservationsWithoutReviewsByPacientId', userAuthMiddleware, asyn
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const reservations = await db('reservations')
+        const reservations = await (await db.getKnex())('reservations')
             .leftJoin('reviews', 'reservations.id', 'reviews.reservation_id')
             .join('users', 'reservations.doctor_id', 'users.id')
             .where('reservations.patient_id', userId)

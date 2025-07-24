@@ -1,29 +1,136 @@
-// import knex from 'knex';
-// import knexConfig from './../../knexfile.cjs';
-
-// const db = knex(knexConfig);
-
-// export default db;
-
 import knex from 'knex';
-import knexConfig from './../../knexfile.cjs';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const knexConfig = require('../../knexfile.cjs');
 
-let dbInstance = null;
-
-const getDbInstance = () => {
-    if (!dbInstance) {
-        dbInstance = knex(knexConfig);  // Initialize the instance only once
+class DatabaseManager {
+    constructor() {
+        this.knex = null;
+        this.isConnected = false;
     }
-    // Attach event listener for `updated_at`
-    dbInstance.on('query', (queryData) => {
-        if (queryData.method === 'update') {
-            queryData.bindings.push(new Date());
-            queryData.sql += ', updated_at = ?';
+
+    async connect() {
+        try {
+            if (!this.knex) {
+                console.log('🔌 Connecting to database...');
+
+                // Select the correct environment configuration
+                const environment = process.env.NODE_ENV || 'production';
+                const config = knexConfig[environment];
+
+                console.log('📊 Database config:', {
+                    environment,
+                    connection: config.connection
+                });
+
+                this.knex = knex(config);
+
+                // Test the connection
+                await this.knex.raw('SELECT 1');
+                this.isConnected = true;
+                console.log('✅ Database connected successfully');
+
+                // Check if database exists
+                try {
+                    const currentDb = await this.knex.raw('SELECT current_database() as current_db');
+                    console.log('🎯 Current database:', currentDb.rows[0].current_db);
+                } catch (dbError) {
+                    console.log('⚠️ Could not check database:', dbError.message);
+                }
+            }
+            return this.knex;
+        } catch (error) {
+            console.error('❌ Database connection failed:', error.message);
+            console.error('🔍 Connection error details:', error.stack);
+            throw error;
         }
-    });
-    return dbInstance;  // Always return the same instance
-};
+    }
 
-const db = getDbInstance();  // Ensure the same instance is exported
+    async disconnect() {
+        try {
+            if (this.knex) {
+                await this.knex.destroy();
+                this.knex = null;
+                this.isConnected = false;
+                console.log('✅ Database disconnected successfully');
+            }
+        } catch (error) {
+            console.error('❌ Database disconnection failed:', error.message);
+            throw error;
+        }
+    }
 
-export default db;
+    async healthCheck() {
+        try {
+            if (!this.knex) {
+                await this.connect();
+            }
+            await this.knex.raw('SELECT 1');
+            return { status: 'healthy', connected: true };
+        } catch (error) {
+            return {
+                status: 'unhealthy',
+                connected: false,
+                error: error.message
+            };
+        }
+    }
+
+    async getKnex() {
+        if (!this.knex) {
+            await this.connect();
+        }
+        return this.knex;
+    }
+
+    async runMigrations() {
+        try {
+            console.log('🔄 Starting migrations...');
+            if (!this.knex) {
+                await this.connect();
+            }
+            console.log('📋 Running migrations...');
+            await this.knex.migrate.latest();
+            console.log('✅ Migrations completed successfully');
+        } catch (error) {
+            console.error('❌ Migration failed:', error.message);
+            console.error('🔍 Migration error details:', error.stack);
+            throw error;
+        }
+    }
+
+    async runSeeds() {
+        try {
+            console.log('🌱 Starting seeds...');
+            if (!this.knex) {
+                await this.connect();
+            }
+            console.log('📦 Running seeds...');
+            await this.knex.seed.run();
+            console.log('✅ Seeds completed successfully');
+        } catch (error) {
+            console.error('❌ Seeding failed:', error.message);
+            console.error('🔍 Seeding error details:', error.stack);
+            throw error;
+        }
+    }
+}
+
+// Create a singleton instance
+const databaseManager = new DatabaseManager();
+
+// Export the manager instance as default
+export default databaseManager;
+
+// Graceful shutdown handling
+process.on('SIGINT', async () => {
+    console.log('\n🔄 Shutting down gracefully...');
+    await databaseManager.disconnect();
+    process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+    console.log('\n🔄 Shutting down gracefully...');
+    await databaseManager.disconnect();
+    process.exit(0);
+});
