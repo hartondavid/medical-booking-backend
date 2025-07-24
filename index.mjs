@@ -37,8 +37,8 @@ const runMigrations = async () => {
 
         // Check if database exists and show tables
         try {
-            const tables = await knex.raw('SHOW TABLES');
-            console.log('📋 Existing tables:', tables[0].map(table => Object.values(table)[0]));
+            const tables = await knex.raw("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
+            console.log('📋 Existing tables:', tables.rows.map(table => table.tablename));
         } catch (error) {
             console.log('⚠️ Could not check tables:', error.message);
         }
@@ -49,8 +49,8 @@ const runMigrations = async () => {
 
         // Check tables after migrations
         try {
-            const tablesAfter = await knex.raw('SHOW TABLES');
-            console.log('📋 Tables after migrations:', tablesAfter[0].map(table => Object.values(table)[0]));
+            const tablesAfter = await knex.raw("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
+            console.log('📋 Tables after migrations:', tablesAfter.rows.map(table => table.tablename));
         } catch (error) {
             console.log('⚠️ Could not check tables after migrations:', error.message);
         }
