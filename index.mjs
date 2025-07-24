@@ -43,6 +43,7 @@ const runMigrations = async () => {
             console.log('⚠️ Could not check tables:', error.message);
         }
 
+
         console.log('🔄 Running migrations...');
         await databaseManager.runMigrations();
         console.log('✅ Migrations completed successfully');
