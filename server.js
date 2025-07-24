@@ -1,7 +1,7 @@
 // server.mjs (handles starting the server)
 import app from './index.mjs';
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8080;
 
 // Start the server
 app.listen(port, '0.0.0.0', () => {
