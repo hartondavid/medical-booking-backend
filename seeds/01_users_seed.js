@@ -8,11 +8,11 @@ exports.seed = async function (knex) {
   await knex('users').insert([
     {
       id: 1, name: 'Elena', email: 'elena@gmail.com', password: '171c94533cacff0e4c5b85636a9e4fd6', confirm_password: '171c94533cacff0e4c5b85636a9e4fd6',
-      phone: '07254345', specialization: 'pediatrie', photo: 'https://bing.com/th/id/BCO.90a15806-1c05-45d0-af8d-9f5e6f3df43b.png'
+      phone: '07254345', specialization: 'pediatrie', photo: 'https://bing.com/th/id/BCO.04196a8f-3ab3-4672-9f91-92287c71f7fb.png'
     },
     {
       id: 2, name: 'Catalina', email: 'catalina@gmail.com', password: '4d4d9eaf4dcb4ec146aa000019b1a5c5', confirm_password: '4d4d9eaf4dcb4ec146aa000019b1a5c5',
-      phone: '0745123457', specialization: 'ortopedie', photo: 'https://bing.com/th/id/BCO.5c28f217-3bc0-4e22-a6e7-5fff79ea35c3.png'
+      phone: '0745123457', specialization: 'ortopedie', photo: 'https://bing.com/th/id/BCO.fea751aa-3b1a-4a1d-b1ea-e7c3f6f0e3aa.png'
     },
 
   ]);

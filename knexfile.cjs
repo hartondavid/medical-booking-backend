@@ -1,29 +1,35 @@
 // knexfile.js
 require('dotenv').config({ path: './.env.local' });
 
-// This is the base configuration that will be shared
-const baseConfig = {
-    client: 'pg', // Changed from 'mysql2' to 'pg' for PostgreSQL
-    migrations: {
-        directory: './migrations'
-    },
-    seeds: {
-        directory: './seeds'
-    }
-};
-
 module.exports = {
     // --- Development Environment ---
-    // Used when you run your app locally
+    // Used when you run your app locally with PostgreSQL
     development: {
-        ...baseConfig,
-        connection: process.env.DATABASE_URL, // Reads the connection string from your .env.local file
+        client: 'pg',
+        connection: {
+            host: process.env.DB_HOST,
+            port: parseInt(process.env.DB_PORT),
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
+            database: process.env.DB_NAME
+        },
+        migrations: {
+            directory: './migrations'
+        },
+        seeds: {
+            directory: './seeds'
+        },
+        pool: {
+            min: 2,
+            max: 10
+        },
+        debug: process.env.NODE_ENV === 'development'
     },
 
     // --- Production Environment ---
-    // Used by Vercel when you deploy
+    // Used by Vercel when you deploy with PostgreSQL
     production: {
-        ...baseConfig,
+        client: 'pg',
         connection: process.env.DATABASE_URL,
         // SSL is required for connecting to Supabase from a cloud environment like Vercel
         ssl: { rejectUnauthorized: false },
@@ -32,6 +38,12 @@ module.exports = {
         pool: {
             min: 2,
             max: 10
+        },
+        migrations: {
+            directory: './migrations'
+        },
+        seeds: {
+            directory: './seeds'
         }
     }
 };

@@ -6,7 +6,7 @@ node_modules/
 .vscode/
 
 # Environment variables
-.env
+.env.local
 .test.env
 
 public/uploads/

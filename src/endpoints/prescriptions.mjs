@@ -29,8 +29,7 @@ router.post('/addPrescription', userAuthMiddleware, upload.fields([{ name: 'file
             return sendJsonResponse(res, false, 400, "File is required", null);
         }
 
-        let filePathForImagePath = req.files['file'][0].path; // Get the full file path
-        filePathForImagePath = filePathForImagePath.replace(/^public[\\/]/, '');
+        const photoUrl = await smartUpload(req.files['file'][0], 'prescriptions');
 
         const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
@@ -42,7 +41,7 @@ router.post('/addPrescription', userAuthMiddleware, upload.fields([{ name: 'file
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const [id] = await (await db.getKnex())('prescriptions').insert({ file_path: filePathForImagePath, patient_id: patient_id, doctor_id: userId });
+        const [id] = await (await db.getKnex())('prescriptions').insert({ file_path: photoUrl, patient_id: patient_id, doctor_id: userId });
 
         const prescription = await (await db.getKnex())('prescriptions').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Reteta a fost adăugată cu succes!", { prescription });
@@ -77,6 +76,14 @@ router.put('/updatePrescription/:prescriptionId', userAuthMiddleware, async (req
             .where({ id: prescriptionId }).first();
 
         if (!prescription) return sendJsonResponse(res, false, 404, "Reteta nu există!", []);
+
+        if (req.files && req.files['file'] && req.files['file'][0]) {
+            // Use smart upload function that automatically chooses storage method
+            const photoUrl = await smartUpload(req.files['file'][0], 'prescriptions');
+
+            file_path = photoUrl;
+        }
+
         await db('prescriptions').where({ id: prescriptionId }).update({
             file_path: file_path || prescription.file_path,
         });
@@ -112,6 +119,13 @@ router.delete('/deletePrescription/:prescriptionId', userAuthMiddleware, async (
         const prescription = await (await db.getKnex())('prescriptions')
             .where({ id: prescriptionId }).first();
         if (!prescription) return sendJsonResponse(res, false, 404, "Rezervarea nu există!", []);
+
+        // Delete the image from Vercel Blob if it's a Blob URL
+        if (product.image) {
+
+            await deleteFromBlob(product.image);
+        }
+
         await (await db.getKnex())('prescriptions').where({ id: prescriptionId }).del();
         return sendJsonResponse(res, true, 200, "Rezervarea a fost ștearsă cu succes!", []);
     } catch (error) {

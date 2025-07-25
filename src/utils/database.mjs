@@ -15,8 +15,18 @@ class DatabaseManager {
                 console.log('🔌 Connecting to database...');
 
                 // Select the correct environment configuration
-                const environment = process.env.NODE_ENV || 'production';
+                const environment = process.env.NODE_ENV || 'development';
                 const config = knexConfig[environment];
+
+                // Validate environment variables for development
+                if (environment === 'development') {
+                    const required = ['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+                    const missing = required.filter(key => !process.env[key]);
+
+                    if (missing.length > 0) {
+                        throw new Error(`Missing required environment variables: ${missing.join(', ')}. Please check your .env.local file.`);
+                    }
+                }
 
                 console.log('📊 Database config:', {
                     environment,
@@ -30,7 +40,7 @@ class DatabaseManager {
                 this.isConnected = true;
                 console.log('✅ Database connected successfully');
 
-                // Check if database exists
+                // Check if database exists (PostgreSQL)
                 try {
                     const currentDb = await this.knex.raw('SELECT current_database() as current_db');
                     console.log('🎯 Current database:', currentDb.rows[0].current_db);
