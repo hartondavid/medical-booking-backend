@@ -25,7 +25,10 @@ const createStorage = (uploadPath) => multer.diskStorage({
         }
     },
     filename: function (req, file, cb) {
-        cb(null, `${Date.now()}_${file.originalname}`);
+        // Store only the filename, not the full path
+        const filename = `${Date.now()}_${file.originalname}`;
+        console.log('Generated filename:', filename);
+        cb(null, filename);
     }
 });
 
@@ -110,7 +113,7 @@ const handleFileUpload = async (req, res, next) => {
 };
 
 // Smart upload function that automatically chooses storage method based on environment
-const smartUpload = async (file, folder = 'cakes') => {
+const smartUpload = async (file, folder = 'prescriptions') => {
     const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
     console.log('🔍 smartUpload - Environment detected:', {
         isProduction,
@@ -172,10 +175,21 @@ const smartUpload = async (file, folder = 'cakes') => {
         if (!file.path) {
             throw new Error('File path not available for local storage');
         }
-        let filePathForImagePath = file.path;
-        filePathForImagePath = filePathForImagePath.replace(/^public[\\/]/, '');
-        console.log('🔍 smartUpload - Local file path processed:', filePathForImagePath);
-        return filePathForImagePath;
+
+        // Get the upload directory from the file path
+        const uploadDir = 'public/uploads/prescriptions';
+        const filename = path.basename(file.path);
+
+        // Construct the relative path for database storage
+        const relativePath = `${uploadDir}/${filename}`;
+
+        console.log('🔍 smartUpload - File path info:', {
+            originalPath: file.path,
+            filename: filename,
+            relativePath: relativePath
+        });
+
+        return relativePath;
     }
 };
 
@@ -199,4 +213,4 @@ const deleteFromBlob = async (url) => {
 };
 
 export default createMulter;
-export { uploadToBlob, handleFileUpload, smartUpload, deleteFromBlob };
+export { uploadToBlob, handleFileUpload, smartUpload, deleteFromBlob }; 

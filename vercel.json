@@ -8,8 +8,17 @@
     ],
     "rewrites": [
         {
+            "source": "/public/(.*)",
+            "destination": "/public/$1"
+        },
+        {
             "source": "/(.*)",
             "destination": "/index.mjs"
         }
-    ]
+    ],
+    "functions": {
+        "index.mjs": {
+            "maxDuration": 30
+        }
+    }
 }

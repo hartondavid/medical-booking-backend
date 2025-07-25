@@ -2,7 +2,7 @@ import { Router } from "express";
 import db from "../utils/database.mjs";
 import { sendJsonResponse } from "../utils/utilFunctions.mjs";
 import { userAuthMiddleware } from "../utils/middlewares/userAuthMiddleware.mjs";
-import createMulter from "../utils/uploadUtils.mjs";
+import createMulter, { smartUpload, deleteFromBlob } from "../utils/uploadUtils.mjs";
 
 const upload = createMulter('public/uploads/prescriptions', [
     'image/jpeg', 'image/png', 'image/gif', 'application/pdf',
@@ -41,8 +41,10 @@ router.post('/addPrescription', userAuthMiddleware, upload.fields([{ name: 'file
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const [id] = await (await db.getKnex())('prescriptions').insert({ file_path: photoUrl, patient_id: patient_id, doctor_id: userId });
+        const result = await (await db.getKnex())('prescriptions').insert({ file_path: photoUrl, patient_id: patient_id, doctor_id: userId }).returning('id');
 
+        // Handle different database return formats
+        const id = Array.isArray(result) ? result[0].id : result.id;
         const prescription = await (await db.getKnex())('prescriptions').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Reteta a fost adăugată cu succes!", { prescription });
     } catch (error) {
@@ -121,9 +123,9 @@ router.delete('/deletePrescription/:prescriptionId', userAuthMiddleware, async (
         if (!prescription) return sendJsonResponse(res, false, 404, "Rezervarea nu există!", []);
 
         // Delete the image from Vercel Blob if it's a Blob URL
-        if (product.image) {
+        if (prescription.file_path) {
 
-            await deleteFromBlob(product.image);
+            await deleteFromBlob(prescription.file_path);
         }
 
         await (await db.getKnex())('prescriptions').where({ id: prescriptionId }).del();

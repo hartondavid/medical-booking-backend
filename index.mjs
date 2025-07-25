@@ -17,6 +17,9 @@ try {
 // Basic middleware
 app.use(express.json());
 
+// Serve static files from public directory
+app.use('/public', express.static('public'));
+
 // Add CORS for frontend access
 app.use(cors({
     origin: '*', // In production, specify your frontend domain
