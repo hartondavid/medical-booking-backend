@@ -3,6 +3,7 @@
 import express from "express"
 import dotenv from 'dotenv'
 import cors from 'cors'
+import path from 'path'
 import databaseManager from './src/utils/database.mjs'
 
 const app = express();
@@ -17,9 +18,6 @@ try {
 // Basic middleware
 app.use(express.json());
 
-// Serve static files from public directory
-app.use('/public', express.static('public'));
-
 // Add CORS for frontend access
 app.use(cors({
     origin: '*', // In production, specify your frontend domain
@@ -27,6 +25,20 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['X-Auth-Token']
 }));
+
+// Serve static files for both local and production environments
+const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
+const useLocalStorage = process.env.USE_LOCAL_STORAGE === 'true';
+
+if (!isProduction || useLocalStorage) {
+    // Serve static files from public directory for local development
+    app.use('/public', express.static(path.join(process.cwd(), 'public')));
+    app.use('/uploads', express.static(path.join(process.cwd(), 'public/uploads')));
+    console.log('📁 Static files served from /public and /uploads');
+} else {
+    // In production, files are served from Vercel Blob URLs
+    console.log('☁️ Static files served from Vercel Blob in production');
+}
 
 // Run migrations before starting the server
 const runMigrations = async () => {
@@ -40,8 +52,8 @@ const runMigrations = async () => {
 
         // Check if database exists and show tables
         try {
-            const tables = await knex.raw("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
-            console.log('📋 Existing tables:', tables.rows.map(table => table.tablename));
+            const tables = await knex.raw('SHOW TABLES');
+            console.log('📋 Existing tables:', tables[0].map(table => Object.values(table)[0]));
         } catch (error) {
             console.log('⚠️ Could not check tables:', error.message);
         }
@@ -52,8 +64,8 @@ const runMigrations = async () => {
 
         // Check tables after migrations
         try {
-            const tablesAfter = await knex.raw("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
-            console.log('📋 Tables after migrations:', tablesAfter.rows.map(table => table.tablename));
+            const tablesAfter = await knex.raw('SHOW TABLES');
+            console.log('📋 Tables after migrations:', tablesAfter[0].map(table => Object.values(table)[0]));
         } catch (error) {
             console.log('⚠️ Could not check tables after migrations:', error.message);
         }
