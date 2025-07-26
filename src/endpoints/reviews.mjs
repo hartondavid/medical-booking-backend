@@ -96,7 +96,6 @@ router.get('/getReservationsWithoutReviewsByPacientId', userAuthMiddleware, asyn
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-
         const reservations = await (await db.getKnex())('reservations')
             .leftJoin('reviews', 'reservations.id', 'reviews.reservation_id')
             .join('users', 'reservations.doctor_id', 'users.id')
