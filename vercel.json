@@ -11,5 +11,10 @@
             "source": "/(.*)",
             "destination": "/index.mjs"
         }
-    ]
+    ],
+    "functions": {
+        "index.mjs": {
+            "maxDuration": 30
+        }
+    }
 }

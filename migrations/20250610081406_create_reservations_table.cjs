@@ -3,7 +3,7 @@ exports.up = function (knex) {
     return knex.schema.createTable('reservations', (table) => {
         table.increments('id').primary();
 
-        table.datetime('date').nullable();
+        table.timestamp('date').nullable();
 
         table.string('subject').nullable();
 
