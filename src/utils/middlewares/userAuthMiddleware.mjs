@@ -27,6 +27,7 @@ export const userAuthMiddleware = async (req, res, next) => {
 
         const user = await (await databaseManager.getKnex())('users').where({ id: userId }).first();
 
+
         if (!user) {
             console.log('❌ Auth middleware - User not found in database for ID:', userId);
             return res.status(404).json({ error: 'User not found' });
