@@ -3,7 +3,6 @@
 import express from "express"
 import dotenv from 'dotenv'
 import cors from 'cors'
-import path from 'path'
 import databaseManager from './src/utils/database.mjs'
 
 const app = express();
@@ -15,30 +14,38 @@ try {
     console.log('No .env file found, using environment variables');
 }
 
+// CORS middleware - MUST BE FIRST
+app.use((req, res, next) => {
+    console.log(`🌐 ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin}`);
+
+    // Add CORS headers to ALL responses
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.header('Access-Control-Expose-Headers', 'X-Auth-Token');
+    res.header('Access-Control-Max-Age', '86400');
+
+    // Handle preflight requests immediately
+    if (req.method === 'OPTIONS') {
+        console.log('🔍 Preflight request handled for:', req.originalUrl);
+        return res.status(200).end();
+    }
+
+    next();
+});
+
 // Basic middleware
 app.use(express.json());
 
-// Add CORS for frontend access
+// Add CORS for frontend access (backup)
 app.use(cors({
-    origin: '*', // In production, specify your frontend domain
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['X-Auth-Token']
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['X-Auth-Token'],
+    preflightContinue: false,
+    optionsSuccessStatus: 200
 }));
-
-// Serve static files for both local and production environments
-const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
-const useLocalStorage = process.env.USE_LOCAL_STORAGE === 'true';
-
-if (!isProduction || useLocalStorage) {
-    // Serve static files from public directory for local development
-    app.use('/public', express.static(path.join(process.cwd(), 'public')));
-    app.use('/uploads', express.static(path.join(process.cwd(), 'public/uploads')));
-    console.log('📁 Static files served from /public and /uploads');
-} else {
-    // In production, files are served from Vercel Blob URLs
-    console.log('☁️ Static files served from Vercel Blob in production');
-}
 
 // Run migrations before starting the server
 const runMigrations = async () => {
@@ -151,12 +158,14 @@ try {
         console.log('⚠️ Continuing without database migrations');
     }
 
+    console.log('🔍 Importing API routes...');
     const { default: apiRoute } = await import('./src/routes/apiRoute.mjs');
     apiRoutes = apiRoute;
     console.log('✅ Database API routes loaded successfully');
 } catch (error) {
     console.log('⚠️ Database API routes not available, using simplified version');
     console.log('🔍 Error:', error.message);
+    console.log('🔍 Error stack:', error.stack);
 }
 
 // Use API routes if available, otherwise use simplified routes
@@ -175,10 +184,34 @@ app.get('/test', (req, res) => {
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'production',
         port: process.env.PORT || 8080,
-        database: apiRoutes ? 'connected' : 'not connected (simplified version)'
+        database: apiRoutes ? 'connected' : 'not connected (simplified version)',
+        cors: {
+            origin: req.headers.origin,
+            allowed: true
+        }
     });
 });
 
+// CORS test route
+app.get('/cors-test', (req, res) => {
+    console.log('CORS test route accessed from:', req.headers.origin);
+    res.json({
+        message: 'CORS test successful!',
+        origin: req.headers.origin,
+        timestamp: new Date().toISOString(),
+        headers: {
+            'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin'),
+            'Access-Control-Allow-Methods': res.getHeader('Access-Control-Allow-Methods'),
+            'Access-Control-Allow-Headers': res.getHeader('Access-Control-Allow-Headers')
+        }
+    });
+});
+
+// OPTIONS test route
+app.options('/cors-test', (req, res) => {
+    console.log('OPTIONS test route accessed from:', req.headers.origin);
+    res.status(200).end();
+});
 
 // Root route
 app.get('/', (req, res) => {
@@ -448,21 +481,6 @@ app.post('/login', async (req, res) => {
         });
     }
 });
-
-// Load API routes
-try {
-    console.log('📡 Loading API routes...');
-    const { default: apiRouter } = await import('./src/routes/apiRoute.mjs');
-    app.use('/api', apiRouter);
-    apiRoutes = true;
-    console.log('✅ Database API routes loaded successfully');
-} catch (error) {
-    console.error('❌ Failed to load API routes:', error.message);
-    console.log('⚠️ Database API routes not available, using simplified version');
-    apiRoutes = false;
-}
-
-console.log('📡 Full API available at /api/*');
 
 // 404 handler for undefined routes
 app.use('*', (req, res) => {
