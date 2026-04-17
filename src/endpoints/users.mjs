@@ -8,15 +8,18 @@ const router = Router();
 
 // Login
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+    const { email: rawEmail, password } = req.body;
 
     try {
         // Validate request
-        if (!email || !password) {
+        if (!rawEmail || !password) {
             return sendJsonResponse(res, false, 400, "Email and password are required", []);
         }
-        // Fetch user from database
-        const user = await (await db.getKnex())('users').where({ email }).first();
+        const email = String(rawEmail).trim().toLowerCase();
+        // Fetch user from database (emails often stored lowercase; match case-insensitively)
+        const user = await (await db.getKnex())('users')
+            .whereRaw('LOWER(TRIM(email)) = ?', [email])
+            .first();
 
         if (!user) {
             return sendJsonResponse(res, false, 401, "Invalid credentials", []);

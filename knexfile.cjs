@@ -1,49 +1,37 @@
 // knexfile.js
 require('dotenv').config({ path: './.env.local' });
 
+// This is the base configuration that will be shared
+const baseConfig = {
+    client: 'pg', // Changed from 'mysql2' to 'pg' for PostgreSQL
+    migrations: {
+        directory: './migrations'
+    },
+    seeds: {
+        directory: './seeds'
+    }
+};
+
 module.exports = {
     // --- Development Environment ---
-    // Used when you run your app locally with PostgreSQL
+    // Used when you run your app locally
     development: {
-        client: 'pg',
-        connection: {
-            host: process.env.DB_HOST,
-            port: parseInt(process.env.DB_PORT),
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME
-        },
-        migrations: {
-            directory: './migrations'
-        },
-        seeds: {
-            directory: './seeds'
-        },
-        pool: {
-            min: 2,
-            max: 10
-        },
-        debug: process.env.NODE_ENV === 'development'
+        ...baseConfig,
+        connection: process.env.DATABASE_URL, // Reads the connection string from your .env.local file
     },
 
     // --- Production Environment ---
-    // Used by Vercel when you deploy with PostgreSQL
+    // Used by Vercel when you deploy
     production: {
-        client: 'pg',
+        ...baseConfig,
         connection: process.env.DATABASE_URL,
-        // SSL is required for connecting to Supabase from a cloud environment like Vercel
+        // SSL is required for connecting to Neon from Vercel
         ssl: { rejectUnauthorized: false },
-        // The connection pool is managed by Supabase's PgBouncer, 
-        // so we use a minimal pool config on the client-side.
+        // Connection pool configuration for Neon
         pool: {
-            min: 2,
-            max: 10
-        },
-        migrations: {
-            directory: './migrations'
-        },
-        seeds: {
-            directory: './seeds'
+            min: 1,
+            max: 5,
+
         }
     }
 };

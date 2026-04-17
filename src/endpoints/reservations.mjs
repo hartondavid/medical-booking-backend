@@ -5,12 +5,30 @@ import { userAuthMiddleware } from "../utils/middlewares/userAuthMiddleware.mjs"
 
 const router = Router();
 
-function toMySQLDatetime(dateString) {
-    // Converts ISO string to 'YYYY-MM-DD HH:MM:SS'
-    const date = new Date(dateString);
+function toDatabaseDatetime(dateString) {
+    // Keep clock time exactly as provided by UI (no UTC shift).
+    const input = String(dateString || '').trim();
+    const match = input.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::\d{2})?/);
+    if (match) {
+        const [, day, hour, minute] = match;
+        return `${day} ${hour}:${minute}:00`;
+    }
+    // Fallback for unexpected input formats.
+    const date = new Date(input);
     return date.toISOString().slice(0, 19).replace('T', ' ');
 }
 
+/** Programări doar la intervale de 30 min (grilă UTC — compatibil RO/Europa cu offset întreg). */
+function isHalfHourSlot(dateString) {
+    const input = String(dateString || '').trim();
+    const match = input.match(/^\d{4}-\d{2}-\d{2}[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (!match) return false;
+    const minute = Number(match[2]);
+    const second = match[3] ? Number(match[3]) : 0;
+    return (minute === 0 || minute === 30) && second === 0;
+}
+
+const ACTIVE_STATUSES = ['pending', 'confirmed'];
 
 // Adaugă o rezervare nouă
 router.post('/addReservation', userAuthMiddleware, async (req, res) => {
@@ -19,9 +37,14 @@ router.post('/addReservation', userAuthMiddleware, async (req, res) => {
 
         const { date, doctor_id, subject, description } = req.body;
         const userId = req.user?.id;
+        const doctorId = Number(doctor_id);
 
         if (!date || !doctor_id || !subject || !description) {
             return sendJsonResponse(res, false, 400, "Campurile sunt obligatorii!", []);
+        }
+
+        if (!Number.isFinite(doctorId)) {
+            return sendJsonResponse(res, false, 400, "doctor_id nu este valid!", []);
         }
 
         const userRights = await (await db.getKnex())('user_rights')
@@ -33,10 +56,44 @@ router.post('/addReservation', userAuthMiddleware, async (req, res) => {
         if (!userRights) {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
-        const dateStartMySQL = toMySQLDatetime(date);
 
-        const [id] = await (await db.getKnex())('reservations').insert({ date: dateStartMySQL, doctor_id, patient_id: userId, subject, description });
-        const reservation = await (await db.getKnex())('reservations').where({ id }).first();
+        if (!isHalfHourSlot(date)) {
+            return sendJsonResponse(
+                res,
+                false,
+                400,
+                "Programările sunt disponibile din 30 în 30 de minute (ex. 10:00, 10:30).",
+                []
+            );
+        }
+
+        const dateStartMySQL = toDatabaseDatetime(date);
+
+        const knex = await db.getKnex();
+
+        // Același interval (medic + dată/oră exactă) nu poate fi rezervat de două ori (programări active)
+        const slotTaken = await knex('reservations')
+            .where({ doctor_id: doctorId })
+            .whereRaw('date::timestamp = ?::timestamp', [dateStartMySQL])
+            .whereIn('status', ACTIVE_STATUSES)
+            .first();
+
+        if (slotTaken) {
+            return sendJsonResponse(
+                res,
+                false,
+                409,
+                "Acest interval este deja rezervat la acest medic. Alegeți altă oră.",
+                []
+            );
+        }
+
+        // PostgreSQL: insert() without .returning() is not iterable — use .returning('id')
+        const [row] = await knex('reservations')
+            .insert({ date: dateStartMySQL, doctor_id: doctorId, patient_id: userId, subject, description })
+            .returning('id');
+        const id = row && typeof row === 'object' ? row.id : row;
+        const reservation = await knex('reservations').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Rezervarea a fost adăugată cu succes!", { reservation });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la adăugarea rezervării!", { details: error.message });

@@ -30,8 +30,12 @@ router.post('/addReview', userAuthMiddleware, async (req, res) => {
         }
 
 
-        const [id] = await (await db.getKnex())('reviews').insert({ rating, reservation_id, doctor_id: 1, pacient_id: userId });
-        const review = await (await db.getKnex())('reviews').where({ id }).first();
+        const knex = await db.getKnex();
+        const [row] = await knex('reviews')
+            .insert({ rating, reservation_id, doctor_id: 1, pacient_id: userId })
+            .returning('id');
+        const id = row && typeof row === 'object' ? row.id : row;
+        const review = await knex('reviews').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Rezervarea a fost adăugată cu succes!", { review });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la adăugarea rezervării!", { details: error.message });

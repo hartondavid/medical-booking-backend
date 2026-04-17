@@ -1,18 +1,10 @@
 // app.js - Complete version with database functionality
 
-import express from "express"
-import dotenv from 'dotenv'
-import cors from 'cors'
-import databaseManager from './src/utils/database.mjs'
+import express from 'express';
+import cors from 'cors';
+import databaseManager from './src/utils/database.mjs';
 
 const app = express();
-
-// Load environment variables (but don't crash if .env doesn't exist)
-try {
-    dotenv.config()
-} catch (error) {
-    console.log('No .env file found, using environment variables');
-}
 
 // CORS middleware - MUST BE FIRST
 app.use((req, res, next) => {

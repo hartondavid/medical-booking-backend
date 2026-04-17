@@ -20,11 +20,29 @@ class DatabaseManager {
 
                 // Validate environment variables for development
                 if (environment === 'development') {
-                    const required = ['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
-                    const missing = required.filter(key => !process.env[key]);
+                    const hasUrl = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+                    const hasDbVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'].every(
+                        (key) => process.env[key]
+                    );
+                    const hasPgVars = !!(
+                        process.env.PGHOST &&
+                        process.env.PGUSER &&
+                        process.env.PGPASSWORD !== undefined &&
+                        process.env.PGDATABASE
+                    );
+                    const knexConfigConn = config.connection;
+                    const hasKnexConnection =
+                        (typeof knexConfigConn === 'string' && knexConfigConn.length > 0) ||
+                        (knexConfigConn &&
+                            typeof knexConfigConn === 'object' &&
+                            knexConfigConn.host &&
+                            knexConfigConn.user &&
+                            knexConfigConn.database);
 
-                    if (missing.length > 0) {
-                        throw new Error(`Missing required environment variables: ${missing.join(', ')}. Please check your .env.local file.`);
+                    if (!hasUrl && !hasDbVars && !hasPgVars && !hasKnexConnection) {
+                        throw new Error(
+                            'Missing database config: set POSTGRES_URL or DATABASE_URL, or DB_HOST/DB_USER/DB_PASSWORD/DB_NAME (and DB_PORT), or PGHOST/PGUSER/PGPASSWORD/PGDATABASE in .env.local.'
+                        );
                     }
                 }
 
