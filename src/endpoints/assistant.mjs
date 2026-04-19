@@ -19,6 +19,13 @@ function getCloudflareConfig() {
     };
 }
 
+/** După fiecare mesaj. Număr din CLINIC_BOOKING_PHONE; dacă lipsește, se folosește X ca placeholder. */
+function getBookingCtaFooter() {
+    const phone = (process.env.CLINIC_BOOKING_PHONE ?? "").trim();
+    const display = phone || "X";
+    return `Vă rugăm să sunați la numărul de telefon ${display}.`;
+}
+
 /** Ore clinică pe grila UTC (aceeași convenție ca la rezervări). Ultimul slot începe la closeHour:00 − 30 min. */
 function getClinicHoursUtc() {
     const open = Number.parseInt(process.env.CLINIC_OPEN_HOUR_UTC ?? "8", 10);
@@ -209,7 +216,8 @@ async function callWorkersAi({ userMessage, availability }) {
         "The JSON includes precomputed freeSlots30Min per doctor: each entry is an available 30-minute interval (startUtc). " +
         "If hasAvailableInterval30Min is true for a doctor, there exists at least one free 30-minute slot in the computed window. " +
         "Only suggest times that appear in freeSlots30Min (or freeSlots30MinPreview). If none are listed for a doctor, say they have no free slot in the current search window. " +
-        "Be concise and practical. Respond in the same language as the user when possible.";
+        "Be concise and practical. Respond in the same language as the user when possible. " +
+        "Do not ask the user to call a phone number at the end — the system appends that line automatically.";
 
     const response = await fetch(endpoint, {
         method: "POST",
@@ -260,9 +268,11 @@ router.post("/chat", async (req, res) => {
 
         const availability = await getClinicAvailabilitySnapshot();
         const assistantReply = await callWorkersAi({ userMessage, availability });
+        const bookingCtaFooter = getBookingCtaFooter();
 
         return sendJsonResponse(res, true, 200, "Assistant reply generated", {
-            reply: assistantReply,
+            reply: assistantReply.trim(),
+            bookingCtaFooter,
             availabilitySummary: availability.summary,
             responseTone: availability.responseTone,
             statusPolicy: availability.statusPolicy,

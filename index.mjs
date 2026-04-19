@@ -1,10 +1,73 @@
 // app.js - Complete version with database functionality
 
+import crypto from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import databaseManager from './src/utils/database.mjs';
 
 const app = express();
+
+/** true pentru 1, true, yes (case-insensitive). */
+function envFlagTruthy(value) {
+    if (value == null || value === '') return false;
+    const s = String(value).trim().toLowerCase();
+    return s === '1' || s === 'true' || s === 'yes';
+}
+
+function isProductionOrVercel() {
+    return process.env.NODE_ENV === 'production' || envFlagTruthy(process.env.VERCEL);
+}
+
+/** Seed-uri la pornire: pe producție/Vercel doar cu RUN_DB_SEEDS; în dev oprite doar cu SKIP_DB_SEEDS. */
+function shouldRunSeedsOnStartup() {
+    if (envFlagTruthy(process.env.SKIP_DB_SEEDS)) {
+        console.log('⏭️ Skipping startup seeds (SKIP_DB_SEEDS is set).');
+        return false;
+    }
+    if (isProductionOrVercel()) {
+        if (!envFlagTruthy(process.env.RUN_DB_SEEDS)) {
+            console.log(
+                '⏭️ Skipping startup seeds on production/Vercel. Set RUN_DB_SEEDS=true (or 1) to run seeds on startup.'
+            );
+            return false;
+        }
+        console.log('🌱 RUN_DB_SEEDS enabled: running seeds on startup (production/Vercel).');
+        return true;
+    }
+    return true;
+}
+
+/** POST /run-seeds cere cheie dacă NODE_ENV=production sau VERCEL este setat. */
+function runSeedsHttpRequiresAdminKey() {
+    return isProductionOrVercel();
+}
+
+function timingSafeEqualUtf8(a, b) {
+    try {
+        const ba = Buffer.from(a, 'utf8');
+        const bb = Buffer.from(b, 'utf8');
+        if (ba.length !== bb.length) return false;
+        return crypto.timingSafeEqual(ba, bb);
+    } catch {
+        return false;
+    }
+}
+
+/** @returns {{ ok: true } | { ok: false, reason: 'no_env_key' | 'forbidden' }} */
+function verifySeedAdminRequest(req) {
+    if (!runSeedsHttpRequiresAdminKey()) {
+        return { ok: true };
+    }
+    const expected = (process.env.SEED_ADMIN_KEY || '').trim();
+    if (!expected) {
+        return { ok: false, reason: 'no_env_key' };
+    }
+    const provided = req.headers['x-seed-admin-key'];
+    if (typeof provided !== 'string' || !timingSafeEqualUtf8(provided, expected)) {
+        return { ok: false, reason: 'forbidden' };
+    }
+    return { ok: true };
+}
 
 // CORS middleware - MUST BE FIRST
 app.use((req, res, next) => {
@@ -13,7 +76,10 @@ app.use((req, res, next) => {
     // Add CORS headers to ALL responses
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.header(
+        'Access-Control-Allow-Headers',
+        'Content-Type, Authorization, X-Requested-With, Accept, Origin, x-seed-admin-key'
+    );
     res.header('Access-Control-Expose-Headers', 'X-Auth-Token');
     res.header('Access-Control-Max-Age', '86400');
 
@@ -33,7 +99,7 @@ app.use(express.json());
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-seed-admin-key'],
     exposedHeaders: ['X-Auth-Token'],
     preflightContinue: false,
     optionsSuccessStatus: 200
@@ -69,17 +135,19 @@ const runMigrations = async () => {
             console.log('⚠️ Could not check tables after migrations:', error.message);
         }
 
-        // Run seeds after migrations
-        console.log('🌱 Running database seeds...');
-        await databaseManager.runSeeds();
-        console.log('✅ Seeds completed successfully');
+        if (shouldRunSeedsOnStartup()) {
+            console.log('🌱 Running database seeds...');
+            await databaseManager.runSeeds();
+            console.log('✅ Seeds completed successfully');
 
-        // Check data after seeds
-        try {
-            const users = await knex('users').select('id', 'name', 'email');
-            console.log('👥 Users after seeds:', users);
-        } catch (error) {
-            console.log('⚠️ Could not check users after seeds:', error.message);
+            try {
+                const users = await knex('users').select('id', 'name', 'email');
+                console.log('👥 Users after seeds:', users);
+            } catch (error) {
+                console.log('⚠️ Could not check users after seeds:', error.message);
+            }
+        } else {
+            console.log('⏭️ Startup seeds skipped.');
         }
 
         return true;
@@ -272,8 +340,21 @@ app.get('/test-db', async (req, res) => {
     }
 });
 
-// Manual seed endpoint (not protected) - for emergency use
+// Manual seed endpoint — pe producție/Vercel necesită SEED_ADMIN_KEY + header x-seed-admin-key
 app.post('/run-seeds', async (req, res) => {
+    const auth = verifySeedAdminRequest(req);
+    if (!auth.ok) {
+        const message =
+            auth.reason === 'no_env_key'
+                ? 'Forbidden: configure SEED_ADMIN_KEY in environment and send the same value in header x-seed-admin-key.'
+                : 'Forbidden.';
+        return res.status(403).json({
+            success: false,
+            message,
+            data: []
+        });
+    }
+
     try {
         console.log('🌱 Manually running seeds...');
 
