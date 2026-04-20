@@ -18,22 +18,20 @@ function isProductionOrVercel() {
     return process.env.NODE_ENV === 'production' || envFlagTruthy(process.env.VERCEL);
 }
 
-/** Seed-uri la pornire: pe producție/Vercel doar cu RUN_DB_SEEDS; în dev oprite doar cu SKIP_DB_SEEDS. */
+/** Seed-uri la pornire: rulează doar când RUN_DB_SEEDS este setat explicit. */
 function shouldRunSeedsOnStartup() {
     if (envFlagTruthy(process.env.SKIP_DB_SEEDS)) {
         console.log('⏭️ Skipping startup seeds (SKIP_DB_SEEDS is set).');
         return false;
     }
-    if (isProductionOrVercel()) {
-        if (!envFlagTruthy(process.env.RUN_DB_SEEDS)) {
-            console.log(
-                '⏭️ Skipping startup seeds on production/Vercel. Set RUN_DB_SEEDS=true (or 1) to run seeds on startup.'
-            );
-            return false;
-        }
-        console.log('🌱 RUN_DB_SEEDS enabled: running seeds on startup (production/Vercel).');
-        return true;
+    if (!envFlagTruthy(process.env.RUN_DB_SEEDS)) {
+        const envLabel = isProductionOrVercel() ? 'production/Vercel' : 'local/development';
+        console.log(
+            `⏭️ Skipping startup seeds on ${envLabel}. Set RUN_DB_SEEDS=true (or 1/yes) to run seeds on startup.`
+        );
+        return false;
     }
+    console.log('🌱 RUN_DB_SEEDS enabled: running seeds on startup.');
     return true;
 }
 
